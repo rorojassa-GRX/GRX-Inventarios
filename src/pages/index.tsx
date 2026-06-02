@@ -58,7 +58,7 @@ export default function Dashboard() {
   const ingBrick  = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
   const ingEcomm  = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
   const pctVend   = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
-  const skusAlerta = SKUS.filter(s => { const st = stockNeto(s.item); return st >= 0 && st <= s.stockMinimo })
+  const skusAlerta = SKUS.filter(s => { const st = stockNeto(s.item); return st >= 0 && st < 200 })
 
   const brickMap: Record<string, { uds: number; ing: number }> = {}
   const ecMap:    Record<string, { uds: number; ing: number }> = {}
@@ -201,9 +201,9 @@ export default function Dashboard() {
                   { label: 'Ingreso total',   value: fmt(totalIng),                      sub: 'a precio costo MX',                  color: '#22c55e' },
                   { label: 'Canal brick',     value: fmt(ingBrick),                      sub: `${Math.round(ingBrick/totalIng*100)}% del ingreso` },
                   { label: 'E-commerce',      value: fmt(ingEcomm),                      sub: `${Math.round(ingEcomm/totalIng*100)}% del ingreso` },
+                  { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
                   { label: 'Stock actual',    value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
                   { label: 'Valor en bodega', value: fmt(valorBodega),                   sub: 'a precio costo MX',  color: '#14b8a6' },
-                  { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
                     <div className="kpi-label">{k.label}</div>
@@ -493,5 +493,3 @@ export default function Dashboard() {
     </>
   )
 }
-
-

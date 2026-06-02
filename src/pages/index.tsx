@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Head from 'next/head'
 import {
-  LayoutDashboard, Box, Users, BarChart2, CalendarDays,
-  Ship, ShoppingBag, Laptop, Gift, AlertTriangle,
+  LayoutDashboard, Box, Users, BarChart2, TrendingUp, AlertTriangle,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, Legend,
 } from 'recharts'
 import {
   SKUS, SELL_IN, CONTENEDOR_FECHA, TOTAL_CONTENEDOR,
@@ -14,10 +14,10 @@ import {
   siPorItem, muPorItem, stockNeto, ingPorItem, ingRow,
 } from '../data/grx'
 
-type Section = 'resumen' | 'inventario' | 'sellin' | 'skus' | 'timeline'
+type Section = 'resumen' | 'inventario' | 'sellin' | 'facturacion' | 'skus'
 
 const CANAL_BADGE: Record<string, string> = {
-  'Brick': 'badge-blue',
+  Brick: 'badge-blue',
   'E-commerce': 'badge-purple',
 }
 
@@ -27,33 +27,36 @@ const ESTADO_BADGE = (stock: number, min: number) => {
   return              { label: 'OK',           cls: 'badge-green' }
 }
 
-const TIMELINE_EVENTOS = [
-  { fecha: '15/10/2025', icono: Ship,        label: 'Llegada del contenedor',       sub: '14,950 piezas · 12 SKUs',      color: '#4f8ef7' },
-  { fecha: '17/10/2025', icono: ShoppingBag, label: 'Juguetibici — 1er pedido',     sub: '3,493 uds · Brick',            color: '#22c55e' },
-  { fecha: '21/10/2025', icono: ShoppingBag, label: 'Juguetron — 1er pedido',       sub: '3,152 uds · Brick',            color: '#22c55e' },
-  { fecha: '06/11/2025', icono: Laptop,      label: 'Primeras ventas Shopify',       sub: 'Inicio canal e-commerce',      color: '#a78bfa' },
-  { fecha: '18/12/2025', icono: ShoppingBag, label: 'Expo Juguetron',               sub: '278 uds · Brick',              color: '#22c55e' },
-  { fecha: '01/01/2026', icono: Gift,        label: 'Salida de muestras',            sub: '25 uds · sin facturar',        color: '#f59e0b' },
-  { fecha: '03/02/2026', icono: Laptop,      label: 'Primeras ventas MercadoLibre', sub: 'Inicio canal Meli',            color: '#a78bfa' },
-  { fecha: '25/02/2026', icono: ShoppingBag, label: 'Juguetron — 2do pedido',       sub: '1,477 uds · Brick',            color: '#22c55e' },
-  { fecha: '06/03/2026', icono: ShoppingBag, label: 'Hotbook',                      sub: '25 uds · Brick',               color: '#22c55e' },
-  { fecha: '20/04/2026', icono: ShoppingBag, label: "TRU's",                        sub: '634 uds · Brick',              color: '#22c55e' },
-]
+const MESES: Record<string, string> = {
+  '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun',
+  '07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic',
+}
+
+function parseFecha(f: string): { year: string; month: string; mesLabel: string } {
+  const [, m, y] = f.split('/')
+  return { year: y, month: m, mesLabel: `${MESES[m]} ${y}` }
+}
 
 export default function Dashboard() {
   const [section, setSection] = useState<Section>('resumen')
-  const [clienteActivo, setClienteActivo] = useState('Todos')
+
+  // Sell In filters
+  const [filtroCanal, setFiltroCanal] = useState('Todos')
+  const [filtroCliente, setFiltroCliente] = useState('Todos')
+  const [filtroFecha, setFiltroFecha] = useState('Todas')
+
+  // Facturación filters
+  const [factClientes, setFactClientes] = useState<string[]>([])
   const [skuActivo, setSkuActivo] = useState(SKUS[0].item)
 
-  const siRows     = sellInVenta()
-  const muRows     = sellInMuestras()
-  const totalSI    = siRows.reduce((a, r) => a + r.uds, 0)
-  const totalMu    = muRows.reduce((a, r) => a + r.uds, 0)
-  const totalSt    = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
-  const totalIng   = siRows.reduce((a, r) => a + ingRow(r), 0)
-  const ingBrick   = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
-  const ingEcomm   = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
-  const pctVend    = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
+  const siRows    = sellInVenta()
+  const muRows    = sellInMuestras()
+  const totalSI   = siRows.reduce((a, r) => a + r.uds, 0)
+  const totalSt   = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
+  const totalIng  = siRows.reduce((a, r) => a + ingRow(r), 0)
+  const ingBrick  = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
+  const ingEcomm  = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
+  const pctVend   = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
   const skusAlerta = SKUS.filter(s => { const st = stockNeto(s.item); return st >= 0 && st <= s.stockMinimo })
 
   const brickMap: Record<string, { uds: number; ing: number }> = {}
@@ -67,15 +70,60 @@ export default function Dashboard() {
   const brickTotal = Object.values(brickMap).reduce((a, v) => a + v.ing, 0)
   const ecTotal    = Object.values(ecMap).reduce((a, v) => a + v.ing, 0)
 
-  const chartData = SKUS.map(s => {
-    const st = stockNeto(s.item)
-    return { name: s.item, stock: Math.max(0, st), min: s.stockMinimo }
-  })
+  const chartData = SKUS.map(s => ({
+    name: s.item, stock: Math.max(0, stockNeto(s.item)), min: s.stockMinimo,
+  }))
 
-  const filteredSI  = (clienteActivo === 'Todos' ? SELL_IN : SELL_IN.filter(r => r.cliente === clienteActivo)).filter(r => r.uds > 0)
+  // Sell In: canales, clientes, fechas disponibles
+  const canalesDisponibles = ['Todos', 'Brick', 'E-commerce']
+  const clientesPorCanal = useMemo(() => {
+    const base = filtroCanal === 'Todos' ? siRows : siRows.filter(r => r.canal === filtroCanal)
+    return ['Todos', ...Array.from(new Set(base.map(r => r.cliente)))]
+  }, [filtroCanal])
+
+  const fechasPorCliente = useMemo(() => {
+    let base = siRows
+    if (filtroCanal !== 'Todos') base = base.filter(r => r.canal === filtroCanal)
+    if (filtroCliente !== 'Todos') base = base.filter(r => r.cliente === filtroCliente)
+    const fechas = Array.from(new Set(base.map(r => r.fecha))).sort((a, b) => {
+      const [da, ma, ya] = a.split('/'); const [db, mb, yb] = b.split('/')
+      return new Date(`${ya}-${ma}-${da}`).getTime() - new Date(`${yb}-${mb}-${db}`).getTime()
+    })
+    return ['Todas', ...fechas]
+  }, [filtroCanal, filtroCliente])
+
+  const filteredSI = useMemo(() => {
+    let rows = siRows
+    if (filtroCanal !== 'Todos') rows = rows.filter(r => r.canal === filtroCanal)
+    if (filtroCliente !== 'Todos') rows = rows.filter(r => r.cliente === filtroCliente)
+    if (filtroFecha !== 'Todas') rows = rows.filter(r => r.fecha === filtroFecha)
+    return rows
+  }, [filtroCanal, filtroCliente, filtroFecha])
+
   const filteredIng = filteredSI.reduce((a, r) => a + ingRow(r), 0)
   const filteredUds = filteredSI.reduce((a, r) => a + r.uds, 0)
 
+  // Facturación por mes
+  const todosClientesSI = Array.from(new Set(siRows.map(r => r.cliente)))
+
+  const facturacionPorMes = useMemo(() => {
+    const clientesFiltro = factClientes.length === 0 ? todosClientesSI : factClientes
+    const mesMap: Record<string, { label: string; total: number; brick: number; ecomm: number }> = {}
+    siRows.filter(r => clientesFiltro.includes(r.cliente)).forEach(r => {
+      const { mesLabel } = parseFecha(r.fecha)
+      if (!mesMap[mesLabel]) mesMap[mesLabel] = { label: mesLabel, total: 0, brick: 0, ecomm: 0 }
+      const v = ingRow(r)
+      mesMap[mesLabel].total += v
+      if (r.canal === 'Brick') mesMap[mesLabel].brick += v
+      else mesMap[mesLabel].ecomm += v
+    })
+    return Object.values(mesMap).sort((a, b) => {
+      const meses = ['Oct 2025','Nov 2025','Dic 2025','Ene 2026','Feb 2026','Mar 2026','Abr 2026','May 2026']
+      return meses.indexOf(a.label) - meses.indexOf(b.label)
+    })
+  }, [factClientes])
+
+  // SKU detail
   const skuInfo      = SKU_MAP[skuActivo]
   const skuSI        = siPorItem(skuActivo)
   const skuMu        = muPorItem(skuActivo)
@@ -89,12 +137,18 @@ export default function Dashboard() {
   }, {} as Record<string, { uds: number; ing: number; canal: string }>)
 
   const NAV = [
-    { id: 'resumen',    label: 'Resumen',    icon: LayoutDashboard },
-    { id: 'inventario', label: 'Inventario', icon: Box },
-    { id: 'sellin',     label: 'Sell In',    icon: Users },
-    { id: 'skus',       label: 'Por SKU',    icon: BarChart2 },
-    { id: 'timeline',   label: 'Timeline',   icon: CalendarDays },
+    { id: 'resumen',      label: 'Resumen',        icon: LayoutDashboard },
+    { id: 'inventario',   label: 'Inventario',     icon: Box },
+    { id: 'sellin',       label: 'Sell In',        icon: Users },
+    { id: 'facturacion',  label: 'Facturación',    icon: TrendingUp },
+    { id: 'skus',         label: 'Por SKU',        icon: BarChart2 },
   ] as const
+
+  const toggleFactCliente = (cl: string) => {
+    setFactClientes(prev =>
+      prev.includes(cl) ? prev.filter(x => x !== cl) : [...prev, cl]
+    )
+  }
 
   return (
     <>
@@ -129,6 +183,7 @@ export default function Dashboard() {
 
         <main style={{ flex: 1, padding: '1.75rem', overflowY: 'auto' }}>
 
+          {/* ── RESUMEN ─────────────────────────────────────────────────── */}
           {section === 'resumen' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Resumen operativo</h1>
@@ -146,8 +201,7 @@ export default function Dashboard() {
                   { label: 'Canal brick',     value: fmt(ingBrick),                      sub: `${Math.round(ingBrick/totalIng*100)}% del ingreso` },
                   { label: 'E-commerce',      value: fmt(ingEcomm),                      sub: `${Math.round(ingEcomm/totalIng*100)}% del ingreso` },
                   { label: 'Stock actual',    value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
-                  { label: 'Muestras',        value: totalMu.toLocaleString(),           sub: 'sin facturar',                       color: '#f59e0b' },
-                  { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`,             color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
+                  { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
                     <div className="kpi-label">{k.label}</div>
@@ -171,8 +225,8 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
-                  { title: 'Canal brick',       map: brickMap, total: brickTotal, color: '#4f8ef7' },
-                  { title: 'Canal e-commerce',  map: ecMap,    total: ecTotal,    color: '#a78bfa' },
+                  { title: 'Canal brick',      map: brickMap, total: brickTotal, color: '#4f8ef7' },
+                  { title: 'Canal e-commerce', map: ecMap,    total: ecTotal,    color: '#a78bfa' },
                 ].map(({ title, map, total, color }) => (
                   <div key={title} className="card" style={{ marginBottom: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>{title}</div>
@@ -191,6 +245,7 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── INVENTARIO ──────────────────────────────────────────────── */}
           {section === 'inventario' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Inventario actual</h1>
@@ -236,38 +291,66 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── SELL IN ─────────────────────────────────────────────────── */}
           {section === 'sellin' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Sell In por cliente</h1>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                {CLIENTES_ORDEN.map(cl => (
-                  <button key={cl} className={`tab-btn${clienteActivo === cl ? ' active' : ''}`} onClick={() => setClienteActivo(cl)}>{cl}</button>
-                ))}
-              </div>
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>{clienteActivo === 'Todos' ? 'Todos los clientes' : clienteActivo}{' · '}<strong style={{ color: 'var(--text)' }}>{filteredUds.toLocaleString()} uds</strong></div>
-                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>Ingreso: <strong style={{ color: '#22c55e' }}>{fmt(filteredIng)}</strong></div>
+
+              {/* Filtros */}
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>Filtros</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Canal</label>
+                    <select value={filtroCanal} onChange={e => { setFiltroCanal(e.target.value); setFiltroCliente('Todos'); setFiltroFecha('Todas') }}
+                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                      {canalesDisponibles.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Cliente</label>
+                    <select value={filtroCliente} onChange={e => { setFiltroCliente(e.target.value); setFiltroFecha('Todas') }}
+                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                      {clientesPorCanal.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Fecha de facturación</label>
+                    <select value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)}
+                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                      {fechasPorCliente.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
                 </div>
+              </div>
+
+              {/* KPIs del filtro */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: '1rem' }}>
+                <div className="kpi-card"><div className="kpi-label">Unidades</div><div className="kpi-value" style={{ fontSize: 20, color: '#4f8ef7' }}>{filteredUds.toLocaleString()}</div></div>
+                <div className="kpi-card"><div className="kpi-label">Ingreso</div><div className="kpi-value" style={{ fontSize: 20, color: '#22c55e' }}>{fmt(filteredIng)}</div></div>
+                <div className="kpi-card"><div className="kpi-label">Líneas</div><div className="kpi-value" style={{ fontSize: 20 }}>{filteredSI.length}</div></div>
+              </div>
+
+              <div className="card">
                 <div style={{ overflowX: 'auto' }}>
                   <table>
-                    <thead><tr><th>Fecha</th><th>Item</th><th>Descripción</th><th>Cliente</th><th>Canal</th><th>Uds</th><th>Costo unit.</th><th>Ingreso</th></tr></thead>
+                    <thead><tr><th>Fecha</th><th>Cliente</th><th>Canal</th><th>Item</th><th>Descripción</th><th>Uds</th><th>Costo unit.</th><th>Ingreso</th></tr></thead>
                     <tbody>
-                      {filteredSI.map((r, i) => {
-                        const esMu = r.cliente === 'Muestras'
-                        return (
+                      {filteredSI.length === 0
+                        ? <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text3)', padding: '2rem' }}>Sin resultados con estos filtros</td></tr>
+                        : filteredSI.map((r, i) => (
                           <tr key={i}>
-                            <td style={{ fontSize: 12 }}>{r.fecha}</td>
-                            <td style={{ fontWeight: 600 }}>{r.item}</td>
-                            <td style={{ fontSize: 12, color: 'var(--text2)' }}>{SKU_MAP[r.item]?.description}</td>
+                            <td style={{ fontSize: 12, fontWeight: 500 }}>{r.fecha}</td>
                             <td style={{ fontWeight: 500 }}>{r.cliente}</td>
                             <td><span className={`badge ${CANAL_BADGE[r.canal]}`}>{r.canal}</span></td>
+                            <td style={{ fontWeight: 600 }}>{r.item}</td>
+                            <td style={{ fontSize: 12, color: 'var(--text2)' }}>{SKU_MAP[r.item]?.description}</td>
                             <td>{r.uds.toLocaleString()}</td>
                             <td style={{ color: 'var(--text2)' }}>{fmt(SKU_MAP[r.item]?.costo ?? 0)}</td>
-                            <td style={{ fontWeight: 600, color: esMu ? '#f59e0b' : '#22c55e' }}>{esMu ? '—' : fmt(ingRow(r))}</td>
+                            <td style={{ fontWeight: 600, color: '#22c55e' }}>{fmt(ingRow(r))}</td>
                           </tr>
-                        )
-                      })}
+                        ))
+                      }
                     </tbody>
                   </table>
                 </div>
@@ -275,11 +358,96 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ── FACTURACIÓN POR MES ─────────────────────────────────────── */}
+          {section === 'facturacion' && (
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Facturación por mes</h1>
+
+              {/* Filtro clientes */}
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                  Filtrar por cliente {factClientes.length > 0 && <span style={{ color: 'var(--accent)' }}>· {factClientes.length} seleccionados</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    className={`tab-btn${factClientes.length === 0 ? ' active' : ''}`}
+                    onClick={() => setFactClientes([])}>
+                    Todos
+                  </button>
+                  {todosClientesSI.map(cl => (
+                    <button key={cl}
+                      className={`tab-btn${factClientes.includes(cl) ? ' active' : ''}`}
+                      onClick={() => toggleFactCliente(cl)}>
+                      {cl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* KPIs totales */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: '1.25rem' }}>
+                <div className="kpi-card"><div className="kpi-label">Ingreso total</div><div className="kpi-value" style={{ fontSize: 18, color: '#22c55e' }}>{fmt(facturacionPorMes.reduce((a, m) => a + m.total, 0))}</div></div>
+                <div className="kpi-card"><div className="kpi-label">Brick</div><div className="kpi-value" style={{ fontSize: 18, color: '#4f8ef7' }}>{fmt(facturacionPorMes.reduce((a, m) => a + m.brick, 0))}</div></div>
+                <div className="kpi-card"><div className="kpi-label">E-commerce</div><div className="kpi-value" style={{ fontSize: 18, color: '#a78bfa' }}>{fmt(facturacionPorMes.reduce((a, m) => a + m.ecomm, 0))}</div></div>
+                <div className="kpi-card"><div className="kpi-label">Meses activos</div><div className="kpi-value" style={{ fontSize: 18 }}>{facturacionPorMes.length}</div></div>
+              </div>
+
+              {/* Gráfica barras por mes */}
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Ingreso mensual total</div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#4f8ef7', display: 'inline-block' }}></span> Brick</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#a78bfa', display: 'inline-block' }}></span> E-commerce</span>
+                </div>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={facturacionPorMes} margin={{ top: 4, right: 8, left: 10, bottom: 0 }}>
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} tickFormatter={v => '$' + (v/1000).toFixed(0) + 'k'} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number, name: string) => [fmt(v), name === 'brick' ? 'Brick' : 'E-commerce']}
+                    />
+                    <Bar dataKey="brick" stackId="a" fill="#4f8ef7" radius={[0,0,0,0]} />
+                    <Bar dataKey="ecomm" stackId="a" fill="#a78bfa" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabla por mes */}
+              <div className="card">
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Detalle por mes</div>
+                <table>
+                  <thead><tr><th>Mes</th><th>Brick</th><th>E-commerce</th><th>Total</th></tr></thead>
+                  <tbody>
+                    {facturacionPorMes.map(m => (
+                      <tr key={m.label}>
+                        <td style={{ fontWeight: 500 }}>{m.label}</td>
+                        <td style={{ color: '#4f8ef7' }}>{fmt(m.brick)}</td>
+                        <td style={{ color: '#a78bfa' }}>{fmt(m.ecomm)}</td>
+                        <td style={{ fontWeight: 600, color: '#22c55e' }}>{fmt(m.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td style={{ color: '#4f8ef7' }}>{fmt(facturacionPorMes.reduce((a,m)=>a+m.brick,0))}</td>
+                      <td style={{ color: '#a78bfa' }}>{fmt(facturacionPorMes.reduce((a,m)=>a+m.ecomm,0))}</td>
+                      <td style={{ fontWeight: 700, color: '#22c55e' }}>{fmt(facturacionPorMes.reduce((a,m)=>a+m.total,0))}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── POR SKU ─────────────────────────────────────────────────── */}
           {section === 'skus' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Análisis por SKU</h1>
               <div style={{ marginBottom: 12 }}>
-                <select value={skuActivo} onChange={e => setSkuActivo(e.target.value)} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', minWidth: 320 }}>
+                <select value={skuActivo} onChange={e => setSkuActivo(e.target.value)}
+                  style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', minWidth: 320 }}>
                   {SKUS.map(s => <option key={s.item} value={s.item}>{s.item} · {s.description}</option>)}
                 </select>
               </div>
@@ -313,32 +481,6 @@ export default function Dashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          )}
-
-          {section === 'timeline' && (
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Timeline de operaciones</h1>
-              <div className="card" style={{ maxWidth: 560 }}>
-                {TIMELINE_EVENTOS.map((e, i) => {
-                  const Icon = e.icono
-                  return (
-                    <div key={i} style={{ display: 'flex', gap: 12 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: e.color, flexShrink: 0 }}>
-                          <Icon size={14} />
-                        </div>
-                        {i < TIMELINE_EVENTOS.length - 1 && <div className="timeline-line" />}
-                      </div>
-                      <div style={{ paddingBottom: i < TIMELINE_EVENTOS.length - 1 ? 20 : 0, flex: 1 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>{e.fecha}</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{e.label}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>{e.sub}</div>
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
             </div>
           )}

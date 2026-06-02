@@ -52,7 +52,8 @@ export default function Dashboard() {
   const siRows    = sellInVenta()
   const muRows    = sellInMuestras()
   const totalSI   = siRows.reduce((a, r) => a + r.uds, 0)
-  const totalSt   = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
+  const totalSt     = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
+  const valorBodega = SKUS.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0)
   const totalIng  = siRows.reduce((a, r) => a + ingRow(r), 0)
   const ingBrick  = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
   const ingEcomm  = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
@@ -160,9 +161,9 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         <aside style={{ width: 220, background: 'var(--bg2)', borderRight: '1px solid var(--border)', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-          <div style={{ marginBottom: '1.5rem', paddingLeft: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--text)' }}>GRX Group</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Dashboard logístico</div>
+          <div style={{ marginBottom: '1.5rem', paddingLeft: 8 }}>
+            <img src="/logo.jpg" alt="GRX Group" style={{ width: 140, height: 'auto', borderRadius: 6, marginBottom: 4 }} />
+            <div style={{ fontSize: 11, color: 'var(--text3)', paddingLeft: 4 }}>Dashboard logístico</div>
           </div>
           {NAV.map(n => {
             const Icon = n.icon
@@ -201,6 +202,7 @@ export default function Dashboard() {
                   { label: 'Canal brick',     value: fmt(ingBrick),                      sub: `${Math.round(ingBrick/totalIng*100)}% del ingreso` },
                   { label: 'E-commerce',      value: fmt(ingEcomm),                      sub: `${Math.round(ingEcomm/totalIng*100)}% del ingreso` },
                   { label: 'Stock actual',    value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
+                  { label: 'Valor en bodega', value: fmt(valorBodega),                   sub: 'a precio costo MX',  color: '#14b8a6' },
                   { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
@@ -257,7 +259,7 @@ export default function Dashboard() {
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                       <div style={{ overflowX: 'auto' }}>
                         <table>
-                          <thead><tr><th>Item</th><th>UPC</th><th>Descripción</th><th>Costo</th><th>Contenedor</th><th>Sell in</th><th>Muestras</th><th>Stock</th><th>% salida</th><th>Estado</th></tr></thead>
+                          <thead><tr><th>Item</th><th>UPC</th><th>Descripción</th><th>Costo</th><th>Contenedor</th><th>Sell in</th><th>Muestras</th><th>Stock</th><th>Valor bodega</th><th>% salida</th><th>Estado</th></tr></thead>
                           <tbody>
                             {skus.map(s => {
                               const si = siPorItem(s.item), mu = muPorItem(s.item), st = stockNeto(s.item)
@@ -273,6 +275,7 @@ export default function Dashboard() {
                                   <td style={{ color: '#4f8ef7' }}>{si.toLocaleString()}</td>
                                   <td style={{ color: '#f59e0b' }}>{mu}</td>
                                   <td style={{ fontWeight: 700, fontSize: 16, color: st <= 0 ? '#ef4444' : 'var(--text)' }}>{st.toLocaleString()}</td>
+                                  <td style={{ fontWeight: 600, color: '#14b8a6' }}>{fmt(Math.max(0, st) * s.costo)}</td>
                                   <td>
                                     <div className="progress-bar" style={{ width: 70 }}><div className="progress-fill" style={{ width: `${pct}%`, background: pct >= 70 ? '#f59e0b' : '#4f8ef7' }} /></div>
                                     <span style={{ fontSize: 11, color: 'var(--text3)' }}>{pct}%</span>
@@ -490,3 +493,5 @@ export default function Dashboard() {
     </>
   )
 }
+
+

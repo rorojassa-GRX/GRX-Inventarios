@@ -172,9 +172,9 @@ export default function Dashboard() {
     const pct  = Math.round((si + mu) / (cont || 1) * 100)
     const hasOOS  = skus.some(s => stockNeto(s.item) < 10)
     const hasBajo = skus.some(s => stockNeto(s.item) >= 10 && stockNeto(s.item) < 200)
-    const estado  = hasOOS
+    const estado  = st < 10
       ? { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
-      : hasBajo
+      : st < 200
       ? { label: 'Bajo', cls: 'badge-amber', dot: '#f59e0b' }
       : { label: 'OK',   cls: 'badge-green', dot: '#22c55e' }
     return { cont, si, mu, st, val, pct, estado }

@@ -22,7 +22,7 @@ const CANAL_BADGE: Record<string, string> = {
 }
 
 const ESTADO_BADGE = (stock: number) => {
-  if (stock <= 0)   return { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
+  if (stock < 10)   return { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
   if (stock < 200)  return { label: 'Bajo', cls: 'badge-amber', dot: '#f59e0b' }
   return              { label: 'OK',        cls: 'badge-green', dot: '#22c55e' }
 }
@@ -164,13 +164,20 @@ export default function Dashboard() {
   // Inventory subtotals helper
   const catTotals = (cat: string) => {
     const skus = SKUS.filter(s => s.categoria === cat)
-    return {
-      cont: skus.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0),
-      si:   skus.reduce((a, s) => a + siPorItem(s.item), 0),
-      mu:   skus.reduce((a, s) => a + muPorItem(s.item), 0),
-      st:   skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)), 0),
-      val:  skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0),
-    }
+    const cont = skus.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0)
+    const si   = skus.reduce((a, s) => a + siPorItem(s.item), 0)
+    const mu   = skus.reduce((a, s) => a + muPorItem(s.item), 0)
+    const st   = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)), 0)
+    const val  = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0)
+    const pct  = Math.round((si + mu) / (cont || 1) * 100)
+    const hasOOS  = skus.some(s => stockNeto(s.item) < 10)
+    const hasBajo = skus.some(s => stockNeto(s.item) >= 10 && stockNeto(s.item) < 200)
+    const estado  = hasOOS
+      ? { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
+      : hasBajo
+      ? { label: 'Bajo', cls: 'badge-amber', dot: '#f59e0b' }
+      : { label: 'OK',   cls: 'badge-green', dot: '#22c55e' }
+    return { cont, si, mu, st, val, pct, estado }
   }
   const grandTotal = {
     cont: SKUS.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0),
@@ -355,7 +362,16 @@ export default function Dashboard() {
                               <td style={{ fontWeight: 600, color: '#f59e0b' }}>{sub.mu}</td>
                               <td style={{ fontWeight: 700, color: '#14b8a6' }}>{sub.st.toLocaleString()}</td>
                               <td style={{ fontWeight: 700, color: '#14b8a6' }}>{fmt(sub.val)}</td>
-                              <td colSpan={2}></td>
+                              <td>
+                                <div className="progress-bar" style={{ width: 70 }}><div className="progress-fill" style={{ width: `${sub.pct}%`, background: sub.pct >= 70 ? '#f59e0b' : '#4f8ef7' }} /></div>
+                                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{sub.pct}%</span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: sub.estado.dot, flexShrink: 0, boxShadow: `0 0 6px ${sub.estado.dot}` }} />
+                                  <span className={`badge ${sub.estado.cls}`}>{sub.estado.label}</span>
+                                </div>
+                              </td>
                             </tr>
                           </tfoot>
                         </table>
@@ -522,13 +538,20 @@ export default function Dashboard() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#a78bfa', display: 'inline-block' }}></span>E-commerce</span>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={facturacionPorMes} margin={{ top: 4, right: 8, left: 10, bottom: 0 }}>
+                  <BarChart data={facturacionPorMes} margin={{ top: 24, right: 8, left: 10, bottom: 0 }}>
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} tickFormatter={v => '$' + (v/1000).toFixed(0) + 'k'} />
                     <Tooltip contentStyle={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
                       formatter={(v: number, name: string) => [fmt(v), name === 'brick' ? 'Brick' : 'E-commerce']} />
                     <Bar dataKey="brick" stackId="a" fill="#4f8ef7" />
-                    <Bar dataKey="ecomm" stackId="a" fill="#a78bfa" radius={[4,4,0,0]} />
+                    <Bar dataKey="ecomm" stackId="a" fill="#a78bfa" radius={[4,4,0,0]}>
+                      <LabelList
+                        dataKey="total"
+                        position="top"
+                        style={{ fontSize: 10, fontWeight: 600, fill: '#8b96ab' }}
+                        formatter={(v: number) => '$' + Math.round(v/1000) + 'k'}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>

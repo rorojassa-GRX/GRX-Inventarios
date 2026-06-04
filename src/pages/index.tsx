@@ -22,9 +22,9 @@ const CANAL_BADGE: Record<string, string> = {
 }
 
 const ESTADO_BADGE = (stock: number) => {
-  if (stock <= 0)    return { label: 'Agotado', cls: 'badge-red' }
-  if (stock < 200)   return { label: 'Bajo',    cls: 'badge-amber' }
-  return               { label: 'OK',           cls: 'badge-green' }
+  if (stock <= 0)   return { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
+  if (stock < 200)  return { label: 'Bajo', cls: 'badge-amber', dot: '#f59e0b' }
+  return              { label: 'OK',        cls: 'badge-green', dot: '#22c55e' }
 }
 
 const MESES: Record<string, string> = {
@@ -62,6 +62,8 @@ export default function Dashboard() {
   const ingEcomm  = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
   const pctVend   = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
   const skusAlerta = SKUS.filter(s => stockNeto(s.item) < 200 && stockNeto(s.item) >= 0)
+  const totalMu     = sellInMuestras().reduce((a, r) => a + r.uds, 0)
+  const valorMu     = sellInMuestras().reduce((a, r) => a + r.uds * (SKU_MAP[r.item]?.costo ?? 0), 0)
 
   const brickMap: Record<string, { uds: number; ing: number }> = {}
   const ecMap:    Record<string, { uds: number; ing: number }> = {}
@@ -246,6 +248,8 @@ export default function Dashboard() {
                   { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
                   { label: 'Stock actual',    value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
                   { label: 'Valor en bodega', value: fmt(valorBodega),                   sub: 'a precio costo MX', color: '#14b8a6' },
+                  { label: 'Muestras (uds)',  value: totalMu.toLocaleString(),           sub: 'unidades entregadas', color: '#f59e0b' },
+                  { label: 'Muestras (valor)',value: fmt(valorMu),                       sub: 'a precio costo MX', color: '#f59e0b' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
                     <div className="kpi-label">{k.label}</div>
@@ -332,7 +336,12 @@ export default function Dashboard() {
                                     <div className="progress-bar" style={{ width: 70 }}><div className="progress-fill" style={{ width: `${pct}%`, background: pct >= 70 ? '#f59e0b' : '#4f8ef7' }} /></div>
                                     <span style={{ fontSize: 11, color: 'var(--text3)' }}>{pct}%</span>
                                   </td>
-                                  <td><span className={`badge ${cls}`}>{label}</span></td>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: ESTADO_BADGE(st).dot, flexShrink: 0, boxShadow: `0 0 6px ${ESTADO_BADGE(st).dot}` }} />
+                                      <span className={`badge ${ESTADO_BADGE(st).cls}`}>{ESTADO_BADGE(st).label}</span>
+                                    </div>
+                                  </td>
                                 </tr>
                               )
                             })}
@@ -417,13 +426,13 @@ export default function Dashboard() {
               <div className="card">
                 <div style={{ overflowX: 'auto' }}>
                   <table>
-                    <thead><tr><th>Mes</th><th>Cliente</th><th>Canal</th><th>Item</th><th>Descripción</th><th>Uds</th><th>Costo unit.</th><th>Ingreso</th></tr></thead>
+                    <thead><tr><th>Fecha</th><th>Cliente</th><th>Canal</th><th>Item</th><th>Descripción</th><th>Uds</th><th>Costo unit.</th><th>Ingreso</th></tr></thead>
                     <tbody>
                       {filteredSI.length === 0
                         ? <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text3)', padding: '2rem' }}>Sin resultados</td></tr>
                         : filteredSI.map((r, i) => (
                           <tr key={i}>
-                            <td style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{getMesLabel(r.fecha)}</td>
+                            <td style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{r.fecha}</td>
                             <td style={{ fontWeight: 500 }}>{r.cliente}</td>
                             <td><span className={`badge ${CANAL_BADGE[r.canal]}`}>{r.canal}</span></td>
                             <td style={{ fontWeight: 600 }}>{r.item}</td>
@@ -453,7 +462,7 @@ export default function Dashboard() {
                     Ver un cliente
                   </button>
                   <button style={btnStyle(modoFact === 'comparar', '#a78bfa')} onClick={() => { setModoFact('comparar'); setFactCliente('') }}>
-                    Comparar clientes
+                    Sumar clientes
                   </button>
                 </div>
 
@@ -491,8 +500,7 @@ export default function Dashboard() {
                   { label: 'Total facturado',  value: fmt(totalFact),              color: '#22c55e' },
                   { label: 'Brick',            value: fmt(facturacionPorMes.reduce((a,m)=>a+m.brick,0)), color: '#4f8ef7' },
                   { label: 'E-commerce',       value: fmt(facturacionPorMes.reduce((a,m)=>a+m.ecomm,0)), color: '#a78bfa' },
-                  { label: 'Mes más alto',     value: mesMaximo.label,             color: '#f59e0b',   sub: fmt(mesMaximo.total) },
-                  { label: 'Promedio mensual', value: fmt(promedioMes),            color: 'var(--text)' },
+                  { label: 'Mes más alto',     value: mesMaximo.label,             color: '#f59e0b', sub: fmt(mesMaximo.total) },
                   { label: 'Meses activos',    value: String(facturacionPorMes.length), color: 'var(--text)' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
@@ -505,12 +513,15 @@ export default function Dashboard() {
 
               {/* Gráfica */}
               <div className="card" style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Ingreso mensual</div>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Ingreso mensual</div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>Total: <strong style={{ color: '#22c55e' }}>{fmt(totalFact)}</strong></div>
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#4f8ef7', display: 'inline-block' }}></span>Brick</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#a78bfa', display: 'inline-block' }}></span>E-commerce</span>
                 </div>
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={facturacionPorMes} margin={{ top: 4, right: 8, left: 10, bottom: 0 }}>
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#8b96ab' }} axisLine={false} tickLine={false} tickFormatter={v => '$' + (v/1000).toFixed(0) + 'k'} />

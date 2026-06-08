@@ -187,6 +187,43 @@ export default function Dashboard() {
     val:  SKUS.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0),
   }
 
+  const exportarInventarioExcel = () => {
+    const headers = ['Item','UPC','Descripción','Categoría','Costo','Contenedor','Sell In','Muestras','Stock','Valor Bodega','% Salida','Estado']
+    const rows = SKUS.map(s => {
+      const si  = siPorItem(s.item)
+      const mu  = muPorItem(s.item)
+      const st  = stockNeto(s.item)
+      const pct = Math.round((si + mu) / (CONTENEDOR_MAP[s.item] ?? 1) * 100)
+      const val = Math.max(0, st) * s.costo
+      const est = st < 10 ? 'OOS' : st < 200 ? 'Bajo' : 'OK'
+      return [s.item, s.upc, s.description, s.categoria, s.costo, CONTENEDOR_MAP[s.item] ?? 0, si, mu, st, Math.round(val), pct + '%', est]
+    })
+    const cats = ['Magnetic Tiles', 'Travel Size', 'Magnetic Brick Tiles'] as const
+    cats.forEach(cat => {
+      const skus = SKUS.filter(s => s.categoria === cat)
+      const cont = skus.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0)
+      const si   = skus.reduce((a, s) => a + siPorItem(s.item), 0)
+      const mu   = skus.reduce((a, s) => a + muPorItem(s.item), 0)
+      const st   = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)), 0)
+      const val  = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0)
+      const pct  = Math.round((si + mu) / (cont || 1) * 100)
+      const est  = st < 10 ? 'OOS' : st < 200 ? 'Bajo' : 'OK'
+      rows.push([`SUBTOTAL ${cat}`, '', '', '', '', cont, si, mu, st, Math.round(val), pct + '%', est])
+    })
+    rows.push(['TOTAL GENERAL', '', '', '', '', grandTotal.cont, grandTotal.si, grandTotal.mu, grandTotal.st, Math.round(grandTotal.val), '', ''])
+    const csv = [headers, ...rows].map(r => r.map(v => {
+      const s = String(v ?? '')
+      return s.includes(',') ? `"${s}"` : s
+    }).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `GRX_Inventario_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <>
       <Head>
@@ -311,6 +348,16 @@ export default function Dashboard() {
           {section === 'inventario' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Inventario actual</h1>
+              <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={exportarInventarioExcel} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid #22c55e',
+                  background: 'rgba(34,197,94,.1)', color: '#22c55e', transition: 'all .15s'
+                }}>
+                  ⬇ Exportar a Excel
+                </button>
+              </div>
               {(['Magnetic Tiles', 'Travel Size', 'Magnetic Brick Tiles'] as const).map(cat => {
                 const skus = SKUS.filter(s => s.categoria === cat)
                 const sub  = catTotals(cat)

@@ -32,7 +32,7 @@ const MESES: Record<string, string> = {
   '07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic',
 }
 
-const ORDEN_MESES = ['Oct 2025','Nov 2025','Dic 2025','Ene 2026','Feb 2026','Mar 2026','Abr 2026','May 2026']
+const ORDEN_MESES = ['Oct 2025','Nov 2025','Dic 2025','Ene 2026','Feb 2026','Mar 2026','Abr 2026','May 2026','Jun 2026']
 
 function parseFecha(f: string) {
   const [, m, y] = f.split('/')

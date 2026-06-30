@@ -1,4 +1,4 @@
-Tienes razón, perdón. Aquí está el código limpio para copiar:
+
 typescriptexport type Canal     = 'Brick' | 'E-commerce'
 export type Categoria = 'Magnetic Tiles' | 'Travel Size' | 'Magnetic Brick Tiles'
 

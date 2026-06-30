@@ -203,5 +203,3 @@ export const ingPorItem = (item: string) => sellInVenta().filter(r => r.item ===
 export const ingRow     = (r: SellInRow) => (SKU_MAP[r.item]?.costo ?? 0) * r.uds
 
 export const CLIENTES_ORDEN = ['Todos', ...Array.from(new Set(SELL_IN.map(r => r.cliente)))]
-GitHub → src/data/grx.ts → lápiz ✏️ → Ctrl+A → borra → pega → Commit. 205 líneas.
-Avísame cuando esté y te paso el index.tsx.

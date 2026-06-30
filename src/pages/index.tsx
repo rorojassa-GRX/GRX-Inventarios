@@ -44,24 +44,24 @@ function getMesLabel(f: string) {
 }
 
 export default function Dashboard() {
-  const [section, setSection]           = useState<Section>('resumen')
-  const [filtroCanal, setFiltroCanal]   = useState('Todos')
+  const [section, setSection]             = useState<Section>('resumen')
+  const [filtroCanal, setFiltroCanal]     = useState('Todos')
   const [filtroCliente, setFiltroCliente] = useState('Todos')
-  const [filtroMes, setFiltroMes]       = useState('Todos')
-  const [modoFact, setModoFact]         = useState<ModoFact>('individual')
-  const [factCliente, setFactCliente]   = useState('')   // individual
-  const [factCompara, setFactCompara]   = useState<string[]>([]) // comparar
-  const [skuActivo, setSkuActivo]       = useState(SKUS[0].item)
+  const [filtroMes, setFiltroMes]         = useState('Todos')
+  const [modoFact, setModoFact]           = useState<ModoFact>('individual')
+  const [factCliente, setFactCliente]     = useState('')
+  const [factCompara, setFactCompara]     = useState<string[]>([])
+  const [skuActivo, setSkuActivo]         = useState(SKUS[0].item)
 
-  const siRows    = sellInVenta()
-  const totalSI   = siRows.reduce((a, r) => a + r.uds, 0)
-  const totalSt   = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
+  const siRows      = sellInVenta()
+  const totalSI     = siRows.reduce((a, r) => a + r.uds, 0)
+  const totalSt     = SKUS.reduce((a, s) => a + stockNeto(s.item), 0)
   const valorBodega = SKUS.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0)
-  const totalIng  = siRows.reduce((a, r) => a + ingRow(r), 0)
-  const ingBrick  = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
-  const ingEcomm  = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
-  const pctVend   = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
-  const skusAlerta = SKUS.filter(s => stockNeto(s.item) < 200 && stockNeto(s.item) >= 0)
+  const totalIng    = siRows.reduce((a, r) => a + ingRow(r), 0)
+  const ingBrick    = siRows.filter(r => r.canal === 'Brick').reduce((a, r) => a + ingRow(r), 0)
+  const ingEcomm    = siRows.filter(r => r.canal === 'E-commerce').reduce((a, r) => a + ingRow(r), 0)
+  const pctVend     = Math.round(totalSI / TOTAL_CONTENEDOR * 100)
+  const skusAlerta  = SKUS.filter(s => stockNeto(s.item) < 200 && stockNeto(s.item) >= 0)
   const totalMu     = sellInMuestras().reduce((a, r) => a + r.uds, 0)
   const valorMu     = sellInMuestras().reduce((a, r) => a + r.uds * (SKU_MAP[r.item]?.costo ?? 0), 0)
 
@@ -80,7 +80,6 @@ export default function Dashboard() {
     name: s.item, stock: Math.max(0, stockNeto(s.item)),
   }))
 
-  // ── Sell In filters ───────────────────────────────────────────────────────
   const canalesDisponibles = ['Todos', 'Brick', 'E-commerce']
 
   const clientesPorCanal = useMemo(() => {
@@ -108,7 +107,6 @@ export default function Dashboard() {
   const filteredIng = filteredSI.reduce((a, r) => a + ingRow(r), 0)
   const filteredUds = filteredSI.reduce((a, r) => a + r.uds, 0)
 
-  // ── Facturación ───────────────────────────────────────────────────────────
   const todosClientesSI = Array.from(new Set(siRows.map(r => r.cliente)))
 
   const clientesFiltroFact = useMemo(() => {
@@ -129,11 +127,9 @@ export default function Dashboard() {
     return Object.values(mesMap).sort((a, b) => ORDEN_MESES.indexOf(a.label) - ORDEN_MESES.indexOf(b.label))
   }, [clientesFiltroFact])
 
-  const totalFact   = facturacionPorMes.reduce((a, m) => a + m.total, 0)
-  const mesMaximo   = facturacionPorMes.reduce((a, m) => m.total > a.total ? m : a, { label: '—', total: 0, brick: 0, ecomm: 0 })
-  const promedioMes = facturacionPorMes.length > 0 ? totalFact / facturacionPorMes.length : 0
+  const totalFact = facturacionPorMes.reduce((a, m) => a + m.total, 0)
+  const mesMaximo = facturacionPorMes.reduce((a, m) => m.total > a.total ? m : a, { label: '—', total: 0, brick: 0, ecomm: 0 })
 
-  // ── SKU detail ────────────────────────────────────────────────────────────
   const skuInfo      = SKU_MAP[skuActivo]
   const skuSI        = siPorItem(skuActivo)
   const skuMu        = muPorItem(skuActivo)
@@ -161,7 +157,6 @@ export default function Dashboard() {
     color: active ? color : 'var(--text2)', transition: 'all .15s',
   } as React.CSSProperties)
 
-  // Inventory subtotals helper
   const catTotals = (cat: string) => {
     const skus = SKUS.filter(s => s.categoria === cat)
     const cont = skus.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0)
@@ -170,15 +165,14 @@ export default function Dashboard() {
     const st   = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)), 0)
     const val  = skus.reduce((a, s) => a + Math.max(0, stockNeto(s.item)) * s.costo, 0)
     const pct  = Math.round((si + mu) / (cont || 1) * 100)
-    const hasOOS  = skus.some(s => stockNeto(s.item) < 10)
-    const hasBajo = skus.some(s => stockNeto(s.item) >= 10 && stockNeto(s.item) < 200)
-    const estado  = st < 10
+    const estado = st < 10
       ? { label: 'OOS',  cls: 'badge-red',   dot: '#ef4444' }
       : st < 200
       ? { label: 'Bajo', cls: 'badge-amber', dot: '#f59e0b' }
       : { label: 'OK',   cls: 'badge-green', dot: '#22c55e' }
     return { cont, si, mu, st, val, pct, estado }
   }
+
   const grandTotal = {
     cont: SKUS.reduce((a, s) => a + (CONTENEDOR_MAP[s.item] ?? 0), 0),
     si:   SKUS.reduce((a, s) => a + siPorItem(s.item), 0),
@@ -272,7 +266,6 @@ export default function Dashboard() {
 
         <main className="main-content">
 
-          {/* ── RESUMEN ─────────────────────────────────────────────────── */}
           {section === 'resumen' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Resumen operativo</h1>
@@ -284,16 +277,16 @@ export default function Dashboard() {
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: '1.5rem' }}>
                 {[
-                  { label: 'Contenedor',      value: TOTAL_CONTENEDOR.toLocaleString(), sub: CONTENEDOR_FECHA },
-                  { label: 'Total sell in',   value: totalSI.toLocaleString(),           sub: `${pctVend}% del contenedor`, color: '#4f8ef7' },
-                  { label: 'Ingreso total',   value: fmt(totalIng),                      sub: 'a precio costo MX',          color: '#22c55e' },
-                  { label: 'Sell In Brick',   value: fmt(ingBrick),                      sub: `${Math.round(ingBrick/totalIng*100)}% del ingreso` },
-                  { label: 'Sell In E-comm',  value: fmt(ingEcomm),                      sub: `${Math.round(ingEcomm/totalIng*100)}% del ingreso` },
-                  { label: 'SKUs con alerta', value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
-                  { label: 'Stock actual',    value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
-                  { label: 'Valor en bodega', value: fmt(valorBodega),                   sub: 'a precio costo MX', color: '#14b8a6' },
-                  { label: 'Muestras (uds)',  value: totalMu.toLocaleString(),           sub: 'unidades entregadas', color: '#f59e0b' },
-                  { label: 'Muestras (valor)',value: fmt(valorMu),                       sub: 'a precio costo MX', color: '#f59e0b' },
+                  { label: 'Contenedor',       value: TOTAL_CONTENEDOR.toLocaleString(), sub: CONTENEDOR_FECHA },
+                  { label: 'Total sell in',    value: totalSI.toLocaleString(),           sub: `${pctVend}% del contenedor`, color: '#4f8ef7' },
+                  { label: 'Ingreso total',    value: fmt(totalIng),                      sub: 'a precio costo MX',          color: '#22c55e' },
+                  { label: 'Sell In Brick',    value: fmt(ingBrick),                      sub: `${Math.round(ingBrick/totalIng*100)}% del ingreso` },
+                  { label: 'Sell In E-comm',   value: fmt(ingEcomm),                      sub: `${Math.round(ingEcomm/totalIng*100)}% del ingreso` },
+                  { label: 'SKUs con alerta',  value: skusAlerta.length.toString(),       sub: `de ${SKUS.length} SKUs`, color: skusAlerta.length > 0 ? '#f59e0b' : '#22c55e' },
+                  { label: 'Stock actual',     value: totalSt.toLocaleString(),           sub: 'unidades en bodega' },
+                  { label: 'Valor en bodega',  value: fmt(valorBodega),                   sub: 'a precio costo MX', color: '#14b8a6' },
+                  { label: 'Muestras (uds)',   value: totalMu.toLocaleString(),           sub: 'unidades entregadas', color: '#f59e0b' },
+                  { label: 'Muestras (valor)', value: fmt(valorMu),                       sub: 'a precio costo MX', color: '#f59e0b' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
                     <div className="kpi-label">{k.label}</div>
@@ -302,8 +295,6 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-
-              {/* Gráfica con etiquetas visibles */}
               <div className="card" style={{ marginBottom: '1.25rem' }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.06em' }}>Stock actual por SKU</div>
                 <ResponsiveContainer width="100%" height={260}>
@@ -313,15 +304,11 @@ export default function Dashboard() {
                     <Tooltip contentStyle={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--text)', fontWeight: 600 }} formatter={(v: number) => [v.toLocaleString(), 'Stock']} />
                     <Bar dataKey="stock" radius={[4, 4, 0, 0]}>
                       <LabelList dataKey="stock" position="top" style={{ fontSize: 11, fontWeight: 600, fill: '#8b96ab' }} formatter={(v: number) => v.toLocaleString()} />
-                      {chartData.map((e, i) => (
-                        <Cell key={i} fill={e.stock <= 0 ? '#ef4444' : e.stock < 200 ? '#f59e0b' : '#4f8ef7'} />
-                      ))}
+                      {chartData.map((e, i) => (<Cell key={i} fill={e.stock <= 0 ? '#ef4444' : e.stock < 200 ? '#f59e0b' : '#4f8ef7'} />))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* Canal tables */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                   { title: 'Sell In Brick',      map: brickMap, total: brickTotal, color: '#4f8ef7' },
@@ -344,17 +331,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── INVENTARIO ──────────────────────────────────────────────── */}
           {section === 'inventario' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Inventario actual</h1>
               <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={exportarInventarioExcel} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', border: '1px solid #22c55e',
-                  background: 'rgba(34,197,94,.1)', color: '#22c55e', transition: 'all .15s'
-                }}>
+                <button onClick={exportarInventarioExcel} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid #22c55e', background: 'rgba(34,197,94,.1)', color: '#22c55e' }}>
                   ⬇ Exportar a Excel
                 </button>
               </div>
@@ -367,14 +348,11 @@ export default function Dashboard() {
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                       <div style={{ overflowX: 'auto' }}>
                         <table>
-                          <thead>
-                            <tr><th>Item</th><th>UPC</th><th>Descripción</th><th>Costo</th><th>Contenedor</th><th>Sell in</th><th>Muestras</th><th>Stock</th><th>Valor bodega</th><th>% salida</th><th>Estado</th></tr>
-                          </thead>
+                          <thead><tr><th>Item</th><th>UPC</th><th>Descripción</th><th>Costo</th><th>Contenedor</th><th>Sell in</th><th>Muestras</th><th>Stock</th><th>Valor bodega</th><th>% salida</th><th>Estado</th></tr></thead>
                           <tbody>
                             {skus.map(s => {
                               const si = siPorItem(s.item), mu = muPorItem(s.item), st = stockNeto(s.item)
                               const pct = Math.round((si + mu) / (CONTENEDOR_MAP[s.item] ?? 1) * 100)
-                              const { label, cls } = ESTADO_BADGE(st)
                               return (
                                 <tr key={s.item}>
                                   <td style={{ fontWeight: 700 }}>{s.item}</td>
@@ -384,7 +362,7 @@ export default function Dashboard() {
                                   <td>{(CONTENEDOR_MAP[s.item] ?? 0).toLocaleString()}</td>
                                   <td style={{ color: '#4f8ef7' }}>{si.toLocaleString()}</td>
                                   <td style={{ color: '#f59e0b' }}>{mu}</td>
-                                  <td style={{ fontWeight: 700, fontSize: 16, color: st < 200 ? (st <= 0 ? '#ef4444' : '#f59e0b') : 'var(--text)' }}>{st.toLocaleString()}</td>
+                                  <td style={{ fontWeight: 700, fontSize: 16, color: st < 200 ? (st < 10 ? '#ef4444' : '#f59e0b') : 'var(--text)' }}>{st.toLocaleString()}</td>
                                   <td style={{ fontWeight: 600, color: '#14b8a6' }}>{fmt(Math.max(0, st) * s.costo)}</td>
                                   <td>
                                     <div className="progress-bar" style={{ width: 70 }}><div className="progress-fill" style={{ width: `${pct}%`, background: pct >= 70 ? '#f59e0b' : '#4f8ef7' }} /></div>
@@ -400,7 +378,6 @@ export default function Dashboard() {
                               )
                             })}
                           </tbody>
-                          {/* Subtotal por categoría */}
                           <tfoot>
                             <tr style={{ background: 'var(--bg3)' }}>
                               <td colSpan={4} style={{ fontWeight: 600, fontSize: 12, color: 'var(--text2)' }}>Subtotal {cat}</td>
@@ -427,17 +404,15 @@ export default function Dashboard() {
                   </div>
                 )
               })}
-
-              {/* Grand total */}
               <div className="card" style={{ background: 'var(--bg3)' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>Total general</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 10 }}>
                   {[
-                    { label: 'Contenedor', value: grandTotal.cont.toLocaleString(), color: 'var(--text)' },
-                    { label: 'Sell in',    value: grandTotal.si.toLocaleString(),   color: '#4f8ef7' },
-                    { label: 'Muestras',   value: grandTotal.mu.toString(),         color: '#f59e0b' },
-                    { label: 'Stock',      value: grandTotal.st.toLocaleString(),   color: 'var(--text)' },
-                    { label: 'Valor bodega', value: fmt(grandTotal.val),            color: '#14b8a6' },
+                    { label: 'Contenedor',   value: grandTotal.cont.toLocaleString(), color: 'var(--text)' },
+                    { label: 'Sell in',      value: grandTotal.si.toLocaleString(),   color: '#4f8ef7' },
+                    { label: 'Muestras',     value: grandTotal.mu.toString(),         color: '#f59e0b' },
+                    { label: 'Stock',        value: grandTotal.st.toLocaleString(),   color: 'var(--text)' },
+                    { label: 'Valor bodega', value: fmt(grandTotal.val),              color: '#14b8a6' },
                   ].map(k => (
                     <div key={k.label}>
                       <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>{k.label}</div>
@@ -449,7 +424,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── SELL IN ─────────────────────────────────────────────────── */}
           {section === 'sellin' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Sell In por cliente</h1>
@@ -458,34 +432,29 @@ export default function Dashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Canal</label>
-                    <select value={filtroCanal} onChange={e => { setFiltroCanal(e.target.value); setFiltroCliente('Todos'); setFiltroMes('Todos') }}
-                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                    <select value={filtroCanal} onChange={e => { setFiltroCanal(e.target.value); setFiltroCliente('Todos'); setFiltroMes('Todos') }} style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
                       {canalesDisponibles.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Cliente</label>
-                    <select value={filtroCliente} onChange={e => { setFiltroCliente(e.target.value); setFiltroMes('Todos') }}
-                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                    <select value={filtroCliente} onChange={e => { setFiltroCliente(e.target.value); setFiltroMes('Todos') }} style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
                       {clientesPorCanal.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Mes</label>
-                    <select value={filtroMes} onChange={e => setFiltroMes(e.target.value)}
-                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
+                    <select value={filtroMes} onChange={e => setFiltroMes(e.target.value)} style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)' }}>
                       {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: '1rem' }}>
                 <div className="kpi-card"><div className="kpi-label">Unidades</div><div className="kpi-value" style={{ fontSize: 20, color: '#4f8ef7' }}>{filteredUds.toLocaleString()}</div></div>
                 <div className="kpi-card"><div className="kpi-label">Ingreso</div><div className="kpi-value" style={{ fontSize: 20, color: '#22c55e' }}>{fmt(filteredIng)}</div></div>
                 <div className="kpi-card"><div className="kpi-label">Líneas</div><div className="kpi-value" style={{ fontSize: 20 }}>{filteredSI.length}</div></div>
               </div>
-
               <div className="card">
                 <div style={{ overflowX: 'auto' }}>
                   <table>
@@ -513,22 +482,14 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── FACTURACIÓN ─────────────────────────────────────────────── */}
           {section === 'facturacion' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Facturación por mes</h1>
-
-              {/* Modo selector */}
               <div className="card" style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                  <button style={btnStyle(modoFact === 'individual')} onClick={() => { setModoFact('individual'); setFactCompara([]) }}>
-                    Ver un cliente
-                  </button>
-                  <button style={btnStyle(modoFact === 'comparar', '#a78bfa')} onClick={() => { setModoFact('comparar'); setFactCliente('') }}>
-                    Sumar clientes
-                  </button>
+                  <button style={btnStyle(modoFact === 'individual')} onClick={() => { setModoFact('individual'); setFactCompara([]) }}>Ver un cliente</button>
+                  <button style={btnStyle(modoFact === 'comparar', '#a78bfa')} onClick={() => { setModoFact('comparar'); setFactCliente('') }}>Sumar clientes</button>
                 </div>
-
                 {modoFact === 'individual' ? (
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>Selecciona un cliente</div>
@@ -546,8 +507,7 @@ export default function Dashboard() {
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {todosClientesSI.map(cl => (
-                        <button key={cl}
-                          style={btnStyle(factCompara.includes(cl), '#a78bfa')}
+                        <button key={cl} style={btnStyle(factCompara.includes(cl), '#a78bfa')}
                           onClick={() => setFactCompara(prev => prev.includes(cl) ? prev.filter(x => x !== cl) : [...prev, cl])}>
                           {cl}
                         </button>
@@ -556,15 +516,13 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-
-              {/* KPIs analíticos */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginBottom: '1.25rem' }}>
                 {[
-                  { label: 'Total facturado',  value: fmt(totalFact),              color: '#22c55e' },
-                  { label: 'Brick',            value: fmt(facturacionPorMes.reduce((a,m)=>a+m.brick,0)), color: '#4f8ef7' },
-                  { label: 'E-commerce',       value: fmt(facturacionPorMes.reduce((a,m)=>a+m.ecomm,0)), color: '#a78bfa' },
-                  { label: 'Mes más alto',     value: mesMaximo.label,             color: '#f59e0b', sub: fmt(mesMaximo.total) },
-                  { label: 'Meses activos',    value: String(facturacionPorMes.length), color: 'var(--text)' },
+                  { label: 'Total facturado', value: fmt(totalFact),              color: '#22c55e' },
+                  { label: 'Brick',           value: fmt(facturacionPorMes.reduce((a,m)=>a+m.brick,0)), color: '#4f8ef7' },
+                  { label: 'E-commerce',      value: fmt(facturacionPorMes.reduce((a,m)=>a+m.ecomm,0)), color: '#a78bfa' },
+                  { label: 'Mes más alto',    value: mesMaximo.label,             color: '#f59e0b', sub: fmt(mesMaximo.total) },
+                  { label: 'Meses activos',   value: String(facturacionPorMes.length), color: 'var(--text)' },
                 ].map(k => (
                   <div key={k.label} className="kpi-card">
                     <div className="kpi-label">{k.label}</div>
@@ -573,8 +531,6 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-
-              {/* Gráfica */}
               <div className="card" style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Ingreso mensual</div>
@@ -592,18 +548,11 @@ export default function Dashboard() {
                       formatter={(v: number, name: string) => [fmt(v), name === 'brick' ? 'Brick' : 'E-commerce']} />
                     <Bar dataKey="brick" stackId="a" fill="#4f8ef7" />
                     <Bar dataKey="ecomm" stackId="a" fill="#a78bfa" radius={[4,4,0,0]}>
-                      <LabelList
-                        dataKey="total"
-                        position="top"
-                        style={{ fontSize: 10, fontWeight: 600, fill: '#8b96ab' }}
-                        formatter={(v: number) => '$' + Math.round(v/1000) + 'k'}
-                      />
+                      <LabelList dataKey="total" position="top" style={{ fontSize: 10, fontWeight: 600, fill: '#8b96ab' }} formatter={(v: number) => '$' + Math.round(v/1000) + 'k'} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* Tabla con % */}
               <div className="card">
                 <table>
                   <thead><tr><th>Mes</th><th>Brick</th><th>E-commerce</th><th>Total</th><th>% del total</th></tr></thead>
@@ -641,13 +590,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── POR SKU ─────────────────────────────────────────────────── */}
           {section === 'skus' && (
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: '1.25rem' }}>Análisis por SKU</h1>
               <div style={{ marginBottom: 12 }}>
-                <select value={skuActivo} onChange={e => setSkuActivo(e.target.value)}
-                  style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', minWidth: 320 }}>
+                <select value={skuActivo} onChange={e => setSkuActivo(e.target.value)} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', minWidth: 320 }}>
                   {SKUS.map(s => <option key={s.item} value={s.item}>{s.item} · {s.description}</option>)}
                 </select>
               </div>
@@ -656,7 +603,7 @@ export default function Dashboard() {
                   { label: 'Contenedor',  value: (CONTENEDOR_MAP[skuActivo] ?? 0).toLocaleString(), color: 'var(--text)' },
                   { label: 'Sell in',     value: skuSI.toLocaleString(),   color: '#4f8ef7' },
                   { label: 'Muestras',    value: skuMu.toString(),          color: '#f59e0b' },
-                  { label: 'Stock neto',  value: skuSt.toLocaleString(),   color: skuSt < 200 ? (skuSt <= 0 ? '#ef4444' : '#f59e0b') : 'var(--text)' },
+                  { label: 'Stock neto',  value: skuSt.toLocaleString(),   color: skuSt < 200 ? (skuSt < 10 ? '#ef4444' : '#f59e0b') : 'var(--text)' },
                   { label: 'Ingreso',     value: fmt(skuIng),               color: '#22c55e' },
                   { label: 'Costo unit.', value: fmt(skuInfo?.costo ?? 0), color: 'var(--text)' },
                 ].map(k => (

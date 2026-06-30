@@ -1,4 +1,4 @@
-typescriptexport type Canal     = 'Brick' | 'E-commerce'
+export type Canal     = 'Brick' | 'E-commerce'
 export type Categoria = 'Magnetic Tiles' | 'Travel Size' | 'Magnetic Brick Tiles'
 
 export interface SKU {
